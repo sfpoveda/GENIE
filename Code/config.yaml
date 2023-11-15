@@ -58,7 +58,7 @@ t_win: 10.0 ## This is the time window over which predictions are made. Shouldn'
 ## Note that right now, this shouldn't change, as the GNN definitions also assume this is 10 s.
 
 ## Additional training params
-device: 'cuda' # or 'cpu'
+device: 'cpu' # or 'cuda'
 max_number_pick_association_labels_per_sample: 1500 # Max number of picks to compute associations for during training 
 ## (cuda RAM can run out for very large numbers of input picks in a single window during training at association prediction step). 
 ## This does not effect the input picks, just the ones we predict association labels for
