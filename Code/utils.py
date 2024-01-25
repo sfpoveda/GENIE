@@ -24,7 +24,7 @@ import itertools
 import pathlib
 import yaml
 
-device = torch.device('cuda') ## or use cpu
+device = torch.device('cpu') ## or use cuda
 
 def load_config(file_path: str) -> dict:
 	"""Load configuration from a YAML file."""
@@ -347,7 +347,7 @@ def interp_3D_return_function_adaptive(X, Xmin, Dx, Mn, Tp, Ts, N, ftrns1, ftrns
 
 	return lambda y, x: evaluate_func(y, ftrns1(x))
 
-def interp_1D_velocity_model_to_3D_travel_times(X, locs, Xmin, X0, Dx, Mn, Tp, Ts, N, ftrns1, ftrns2, device = 'cuda'):
+def interp_1D_velocity_model_to_3D_travel_times(X, locs, Xmin, X0, Dx, Mn, Tp, Ts, N, ftrns1, ftrns2, device = 'cpu'):
 
 	i1 = np.array([[0,0,0], [1,0,0], [0,1,0], [0,0,1], [1,1,0], [1,0,1], [0,1,1], [1,1,1]])
 	x10, x20, x30 = Xmin
@@ -517,7 +517,7 @@ def load_files_with_travel_times(path_to_file, name_of_project, template_ver, ve
 
 	return lat_range, lon_range, depth_range, deg_pad, x_grids, locs, stas, mn, rbest, write_training_file, depths, vp, vs, Tp, Ts, locs_ref, X
 
-def load_travel_time_neural_network(path_to_file, ftrns1, ftrns2, n_ver_load, phase = 'p_s', device = 'cuda', method = 'relative pairs'):
+def load_travel_time_neural_network(path_to_file, ftrns1, ftrns2, n_ver_load, phase = 'p_s', device = 'cpu', method = 'relative pairs'):
 
 	from module import TravelTimes
 	seperator = '\\' if '\\' in path_to_file else '/'
@@ -570,7 +570,7 @@ def load_templates_region(trv, locs, x_grids, ftrns1, training_params, graph_par
 		A_edges_time_p, A_edges_time_s, dt_partition = assemble_time_pointers_for_stations_multiple_grids(x_grids_trv[i], max_t)
 		x_grids_trv_pointers_p.append(A_edges_time_p)
 		x_grids_trv_pointers_s.append(A_edges_time_s)
-		x_grids_trv_refs.append(dt_partition) # save as cuda tensor, or no?
+		x_grids_trv_refs.append(dt_partition) # save as cpu tensor, or no?
 
 	return x_grids, x_grids_edges, x_grids_trv, x_grids_trv_pointers_p, x_grids_trv_pointers_s, x_grids_trv_refs, max_t
 
