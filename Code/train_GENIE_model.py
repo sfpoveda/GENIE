@@ -110,7 +110,9 @@ spike_time_spread = train_config['spike_time_spread']
 s_extra = train_config['s_extra'] ## If this is non-zero, it can increase (or decrease) the total rate of missed s waves compared to p waves
 use_stable_association_labels = train_config['use_stable_association_labels']
 thresh_noise_max = train_config['thresh_noise_max'] # ratio of sig_t*travel time considered excess noise
-training_params_2 = [spc_random, sig_t, spc_thresh_rand, min_sta_arrival, coda_rate, coda_win, max_num_spikes, spike_time_spread, s_extra, use_stable_association_labels, thresh_noise_max]
+min_misfit_allowed = train_config['min_misfit_allowed'] ## The minimum error on theoretical vs. observed travel times that beneath which, picks have positive associaton labels (the upper limit is set by a percentage of the travel time)
+total_bias = train_config['total_bias'] ## The total (uniform across stations) bias on travel times for each synthetic earthquake (helps add robustness to uncertainity on assumed and true velocity models)
+training_params_2 = [spc_random, sig_t, spc_thresh_rand, min_sta_arrival, coda_rate, coda_win, max_num_spikes, spike_time_spread, s_extra, use_stable_association_labels, thresh_noise_max, min_misfit_allowed, total_bias]
 
 ## Training params list 3
 # n_batch = train_config['n_batch']
@@ -138,7 +140,7 @@ def generate_synthetic_data(trv, locs, x_grids, x_grids_trv, x_grids_trv_refs, x
 	t_win, kernel_sig_t, src_t_kernel, src_x_kernel, src_depth_kernel = pred_params
 
 	n_spc_query, n_src_query = training_params
-	spc_random, sig_t, spc_thresh_rand, min_sta_arrival, coda_rate, coda_win, max_num_spikes, spike_time_spread, s_extra, use_stable_association_labels, thresh_noise_max = training_params_2
+	spc_random, sig_t, spc_thresh_rand, min_sta_arrival, coda_rate, coda_win, max_num_spikes, spike_time_spread, s_extra, use_stable_association_labels, thresh_noise_max, min_misfit_allowed, total_bias = training_params_2
 	n_batch, dist_range, max_rate_events, max_miss_events, max_false_events, T, dt, tscale, n_sta_range, use_sources, use_full_network, fixed_subnetworks, use_preferential_sampling, use_shallow_sources = training_params_3
 
 	# spc_random = 20e3
@@ -237,7 +239,7 @@ def generate_synthetic_data(trv, locs, x_grids, x_grids_trv, x_grids_trv_refs, x
 	## errors that are from a velocity model different than used for sampling, training, and application, etc.
 	## Uses a different bias for both p and s waves, but constant for all stations, for each event
 	if add_bias_scaled_travel_time_noise == True:
-		total_bias = 0.03 # up to 3% scaled (uniform across station) travel time error
+		# total_bias = 0.03 # up to 3% scaled (uniform across station) travel time error (now specified in train_config.yaml)
 		scale_bias = np.random.rand(len(src_positions),1,2)*total_bias - total_bias/2.0
 		scale_bias = scale_bias + 1.0
 		arrivals_theoretical = arrivals_theoretical*scale_bias
@@ -286,17 +288,19 @@ def generate_synthetic_data(trv, locs, x_grids, x_grids_trv, x_grids_trv_refs, x
 		##################  error in the above lines, n_spikes = 0
 
 		time_spikes = np.random.rand(n_spikes)*T
-		sta_ind_spikes = np.hstack([np.random.choice(n_sta, size = n_spikes_extent[j], replace = False) for j in range(n_spikes)])
-		sta_time_spikes = np.hstack([time_spikes[j] + np.random.randn(n_spikes_extent[j])*spike_time_spread for j in range(n_spikes)])
-		false_arrivals_spikes = np.concatenate((sta_time_spikes.reshape(-1,1), sta_ind_spikes.reshape(-1,1), -1.0*np.ones((len(sta_ind_spikes),1)), np.zeros((len(sta_ind_spikes),1)), -1.0*np.ones((len(sta_ind_spikes),1))), axis = 1)
-		arrivals = np.concatenate((arrivals, false_arrivals_spikes), axis = 0) ## Concatenate on spikes
+		sta_ind_spikes = [np.random.choice(n_sta, size = n_spikes_extent[j], replace = False) for j in range(n_spikes)]
+		if len(sta_ind_spikes) > 0: ## Add this catch, to avoid error of np.hstack if len(sta_ind_spikes) == 0
+			sta_ind_spikes = np.hstack(sta_ind_spikes)
+			sta_time_spikes = np.hstack([time_spikes[j] + np.random.randn(n_spikes_extent[j])*spike_time_spread for j in range(n_spikes)])
+			false_arrivals_spikes = np.concatenate((sta_time_spikes.reshape(-1,1), sta_ind_spikes.reshape(-1,1), -1.0*np.ones((len(sta_ind_spikes),1)), np.zeros((len(sta_ind_spikes),1)), -1.0*np.ones((len(sta_ind_spikes),1))), axis = 1)
+			arrivals = np.concatenate((arrivals, false_arrivals_spikes), axis = 0) ## Concatenate on spikes
 
 
 	# use_stable_association_labels = True
 	## Check which true picks have so much noise, they should be marked as `false picks' for the association labels
 	if use_stable_association_labels == True: ## It turns out association results are fairly sensitive to this choice
 		# thresh_noise_max = 2.5 # ratio of sig_t*travel time considered excess noise
-		min_misfit_allowed = 1.0 # min misfit time for establishing excess noise
+		# min_misfit_allowed = 1.0 # min misfit time for establishing excess noise (now set in train_config.yaml)
 		iz = np.where(arrivals[:,4] >= 0)[0]
 		noise_values = np.random.laplace(scale = 1, size = len(iz))*sig_t*arrivals[iz,0]
 		iexcess_noise = np.where(np.abs(noise_values) > np.maximum(min_misfit_allowed, thresh_noise_max*sig_t*arrivals[iz,0]))[0]
